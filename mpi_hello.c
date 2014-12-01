@@ -22,7 +22,7 @@ for(i=0; i<argc; i++) {
 }
 printf("\n");
 
-int *arr;// = (int*)malloc(30*sizeof(int));
+int *arr = (int*)malloc(30*sizeof(int));
 //int arr[30];
 
 int mtype;
@@ -38,7 +38,7 @@ printf ("Hello from task %d on %s!\n", taskid, hostname);
 if (taskid == MASTER) {
 	mtype = FROM_MASTER;
    printf("MASTER: Number of MPI tasks is: %d\n",numtasks);
-   arr = (int*)malloc(10*3*sizeof(int));
+   //arr = (int*)malloc(10*3*sizeof(int));
 
 	int i;
 	for (i=0; i<30; ++i) {
@@ -50,7 +50,7 @@ if (taskid == MASTER) {
 if (taskid > MASTER) {
 	mtype = FROM_MASTER;
 
-	arr = (int*)malloc(6*sizeof(int));
+	//arr = (int*)malloc(6*sizeof(int));
 	//int w_arr[6];
 
 	MPI_Recv(arr, 2*3, MPI_INT, MASTER, mtype, MPI_COMM_WORLD, &status);

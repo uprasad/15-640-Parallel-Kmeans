@@ -108,6 +108,18 @@ int main(int argc, char **argv) {
                 exit(1);
         }
 
+	int numtasks,              /* number of tasks in partition */
+            taskid,                /* a task identifier */
+            numworkers,            /* number of worker tasks */
+            source,                /* task id of message source */
+            dest,                  /* task id of message destination */
+            mtype,                 /* message type */
+            rows,                  /* rows of 'points array' sent to each worker */
+            averow, extra, offset, /* used to determine points sent to each worker */
+            i, j, k, rc;           /* misc */
+
+        MPI_Status status;
+
 	/* Parse dimension of input */
         int input_dim = atoi(argv[2]);
 
@@ -120,6 +132,18 @@ int main(int argc, char **argv) {
         int *membership_new;    //membership for clusters
         double *centroids = (double*)malloc((num_clusters*input_dim)*sizeof(double)); //centroids of clusters
 
+	/* MPI Initialization */
+        MPI_Init(&argc,&argv);
+        MPI_Comm_rank(MPI_COMM_WORLD,&taskid);
+        MPI_Comm_size(MPI_COMM_WORLD,&numtasks);
+        if (numtasks < 2 ) {
+                printf("Need at least two MPI tasks. Quitting...\n");
+                MPI_Abort(MPI_COMM_WORLD, rc);
+                exit(1);
+        }
+        numworkers = numtasks-1;	
+
+	if(taskid == MASTER) {
 	FILE *fp = fopen(argv[1], "r");
         num_points = 0;
 
@@ -137,7 +161,7 @@ int main(int argc, char **argv) {
         rewind(fp);
 
 	/* Read the points into an array */
-        int i = 0, j = 0;
+        i = 0, j = 0;
         while (!feof(fp)) {
         	for (j=0; j<input_dim; ++j) {
                 	int idx = (i*input_dim) + j;
@@ -183,6 +207,21 @@ int main(int argc, char **argv) {
                 	membership_old[i] = membership_new[i];
                 }
 
+		averow = num_points/numworkers;
+                extra = num_points%numworkers;
+                offset = 0;
+                mtype = FROM_MASTER;
+                for (dest=1; dest<=numworkers; dest++){
+                	rows = (dest <= extra) ? averow+1 : averow;
+                        printf("Sending %d points to task %d offset=%d\n",rows,dest,offset);
+			MPI_Send(&offset, 1, MPI_INT, dest, mtype, MPI_COMM_WORLD);
+                        MPI_Send(&rows, 1, MPI_INT, dest, mtype, MPI_COMM_WORLD);
+                        MPI_Send(&points[offset*input_dim], rows*input_dim, MPI_DOUBLE, dest, mtype,MPI_COMM_WORLD);
+                        MPI_Send(centroids, num_clusters*input_dim, MPI_DOUBLE, dest, mtype, MPI_COMM_WORLD);
+                        MPI_Send(&membership_new[offset], rows, MPI_INT, dest, mtype, MPI_COMM_WORLD);
+                        offset = offset + rows;
+		}
+
 		/* Assign points to clusters */
                 for (i=0; i<num_points; ++i) {
 			int p_idx = i*input_dim;
@@ -211,6 +250,37 @@ int main(int argc, char **argv) {
 	printf("Finished in %d iterations\n", num_iter);
         printf("The final centroids are:\n");
         print_points(centroids, num_clusters, input_dim);
+	
+	}
+
+	if(taskid > MASTER) {
+                mtype = FROM_MASTER;
+                MPI_Recv(&offset, 1, MPI_INT, MASTER, mtype, MPI_COMM_WORLD, &status);
+                MPI_Recv(&rows, 1, MPI_INT, MASTER, mtype, MPI_COMM_WORLD, &status);
+
+                printf("rows recd\n");
+                printf("rows: %d\n", rows);
+
+		points = (double *)malloc((rows*input_dim)*sizeof(double));
+		
+                MPI_Recv(points, rows*input_dim, MPI_DOUBLE, MASTER, mtype, MPI_COMM_WORLD, &status);
+
+                printf("rows: %d\n", rows);
+                print_points(points, rows, input_dim);
+		printf("points recd\n");
+
+                MPI_Recv(centroids, num_clusters*input_dim, MPI_DOUBLE, MASTER, mtype, MPI_COMM_WORLD, &status);
+
+                printf("centroids recd\n");
+
+		membership_new = (int *)malloc(rows*sizeof(int));
+
+                MPI_Recv(membership_new, rows, MPI_INT, MASTER, mtype, MPI_COMM_WORLD, &status);
+
+                printf("end\n");
+        }
+
+        MPI_Finalize();
 
 	return 0;
 }
