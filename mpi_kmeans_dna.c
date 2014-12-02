@@ -48,23 +48,42 @@ void find_centroids(double* centroids, int num_clusters, double* points, int* me
 		}
 	}
 
-	int* counts = (int*)calloc(num_clusters, sizeof(int));
+	//int* counts = (int*)calloc(num_clusters, sizeof(int));
+	int*** counts = (int***)malloc(num_clusters*sizeof(int **));
 
+        for(i=0; i<num_clusters; i++) {
+                counts[i] = (int**)malloc(input_dim*sizeof(int *));
+                for(j=0; j<input_dim; j++) {
+                        counts[i][j] = (int*)calloc(4, sizeof(int));
+                }
+        }
+
+	//counts for each dimension for each DNA
 	for (i=0; i<num_points; ++i) {
 		for (j=0; j<input_dim; ++j) {
-			int c_idx = ((membership[i]-1)*input_dim) + j;
 			int p_idx = (i*input_dim) + j;
-			centroids[c_idx] += points[p_idx];
+			int idx = (int) points[p_idx];
+
+			counts[membership[i]-1][j][idx]++;
 		}
-		counts[membership[i]-1]++;
 	}
 
+	//find max of each dimension of each cluster
 	for (i=0; i<num_clusters; ++i) {
 		for (j=0; j<input_dim; ++j) {
-			if (counts[i] != 0) {
-				int idx = (i*input_dim) + j;
-				centroids[idx] /= counts[i];
+			int max_val = counts[i][j][0];
+			int max_idx = 0;
+
+			int k = 0;
+			for(k=1; k<4; k++) {
+				if(counts[i][j][k] > max_val) {
+                                        max_val = counts[i][j][k];
+                                        max_idx = k;
+                                }
 			}
+
+			int idx = (i*input_dim) + j;
+			centroids[idx] = max_idx;
 		}
 	}
 }
@@ -110,7 +129,9 @@ double distance(double* x, double* y, int input_dim) {
 	double dist = 0;
 
 	for (i=0; i<input_dim; i++) {
-		dist += (x[i] - y[i])*(x[i] - y[i]);
+		if(x[i]!=y[i]) {
+			dist++;
+		}
 	}
 
 	return dist;
@@ -163,8 +184,18 @@ int main(int argc, char **argv) {
 
 		/* Going through the file to find the number of points */
 		while (!feof(fp)) {
-			double t1, t2;
-			fscanf(fp, "%lf,%lf\n", &t1, &t2);
+			//double t1, t2;
+			//fscanf(fp, "%lf,%lf\n", &t1, &t2);
+			int i, t1;
+			
+			for(i=0; i<input_dim; i++) {
+                        	if(i==0)
+                                	fscanf(fp, "%lf", &t1);
+                        	else
+                                	fscanf(fp, ",%lf", &t1);
+                	}
+                	fscanf(fp, "\n");
+			
 			num_points++;
 		}
 
@@ -266,6 +297,8 @@ int main(int argc, char **argv) {
 		printf("Finished in %d iterations\n", num_iter);
 		printf("The final centroids are:\n");
 		print_points(centroids, num_clusters, input_dim);
+
+		print_memberships(membership_new, num_points);
 
 	}
 
