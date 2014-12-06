@@ -8,71 +8,48 @@
 #define FROM_MASTER 1          /* setting a message type */
 #define FROM_WORKER 2          /* setting a message type */
 
-#define EXIT 0
-#define CONTINUE 1
+void print_points(double** points, int num_points, int input_dim) {
 
-/* Prints all points in the points array */
-void print_points(double* points, int num_points, int input_dim) {
-	
+	printf("heeeere\n");
+	printf("%d, %d\n", num_points, input_dim);
 	int i, j;
 
 	for (i=0; i<num_points; i++) {
-		printf("(");
+		printf("( ");
 		for (j=0; j<input_dim; j++) {
-			int idx = (i*input_dim) + j;
-			fprintf(stdout, "%lf\t", points[idx]);
+			fprintf(stdout, "%lf ", points[i][j]);
 		}
-		printf(")\n");
+		printf(" )\n");
 	}
 }
 
-/* Prints the memberships for all points with respect to the clusters */
-void print_memberships(int* membership, int num_points) {
-	int i;
-
-	printf("(");
-	for (i=0; i<num_points; i++) {
-		fprintf(stdout, "%d ", membership[i]);
-	}
-	printf(")\n");
-}
-
-/* Estimates the centroids from the membership of the points */
-void find_centroids(double* centroids, int num_clusters, double* points, int* membership, int num_points, int input_dim) {
+void find_centroids(double** centroids, int num_clusters, double** points, int* membership, int num_points, int input_dim) {
 	int i, j;
 
-	//initialize all centroids to zero
 	for (i=0; i<num_clusters; ++i) {
 		for (j=0; j<input_dim; ++j) {
-			int idx = (i*input_dim) + j;
-			centroids[idx] = 0;
+			centroids[i][j] = 0;
 		}
 	}
 
 	int* counts = (int*)calloc(num_clusters, sizeof(int));
 
-	//count membership for all points
 	for (i=0; i<num_points; ++i) {
 		for (j=0; j<input_dim; ++j) {
-			int c_idx = ((membership[i]-1)*input_dim) + j;
-			int p_idx = (i*input_dim) + j;
-			centroids[c_idx] += points[p_idx];
+			centroids[membership[i]-1][j] += points[i][j];
 		}
 		counts[membership[i]-1]++;
 	}
 
-	//update cluster centers/ centroids
 	for (i=0; i<num_clusters; ++i) {
 		for (j=0; j<input_dim; ++j) {
 			if (counts[i] != 0) {
-				int idx = (i*input_dim) + j;
-				centroids[idx] /= counts[i];
+				centroids[i][j] /= counts[i];
 			}
 		}
 	}
 }
 
-/* Returns number of changes from membership_old to membership_new */
 int num_changed_members(int* membership_old, int* membership_new, int num_points) {
 	int i;
 	int num_changed = 0;
@@ -85,11 +62,9 @@ int num_changed_members(int* membership_old, int* membership_new, int num_points
 	return num_changed;
 }
 
-/* Randomly chooses cluster centroids from points */
 void init_cluster_centroids(int* centroids, int num_clusters, int num_points) {
 	srand(time(NULL));
 
-	/* Random Permutation generator */
 	int i;
 	int* points_shuffle = (int*)malloc(num_points*sizeof(int));
 	for (i=0; i<num_points; i++) {
@@ -104,13 +79,11 @@ void init_cluster_centroids(int* centroids, int num_clusters, int num_points) {
 		points_shuffle[randomIndex] = temp;
 	}
 
-	/* Assign initial cluster centers from points */
 	for (i=0; i<num_clusters; ++i) {
 		centroids[i] = points_shuffle[i];
 	}
 }
 
-/* Distance between two points */
 double distance(double* x, double* y, int input_dim) {
 	/* Squared Euclidean, but can be changed to anything */
 	int i;
@@ -124,6 +97,7 @@ double distance(double* x, double* y, int input_dim) {
 }
 
 int main(int argc, char **argv) {
+	
 	if (argc < 4) {
 		printf("Usage: %s <input_path> <input_dimensions> <num_clusters>\n", argv[0]);
 		exit(1);
@@ -132,7 +106,7 @@ int main(int argc, char **argv) {
 	int numtasks,              /* number of tasks in partition */
 		taskid,                /* a task identifier */
 		numworkers,            /* number of worker tasks */
-		source,                /* task id of message source */
+	    source,                /* task id of message source */
 		dest,                  /* task id of message destination */
 		mtype,                 /* message type */
 		rows,                  /* rows of 'points array' sent to each worker */
@@ -148,10 +122,10 @@ int main(int argc, char **argv) {
 	int num_clusters = atoi(argv[3]);
 
 	/* Cluster specific data structures */
-	int num_points;                 //no. of points in dataset
-	double *points;                //data structure for points
-	int *membership_new;    //membership for clusters
-	double *centroids = (double*)malloc((num_clusters*input_dim)*sizeof(double)); //centroids of clusters
+	int num_points; 		//no. of points in dataset
+	double **points;		//data structure for points
+	int *membership_new;	//membership for clusters
+	double **centroids = (double**)malloc(num_clusters*sizeof(double*)); //centroids of clusters
 
 	/* MPI Initialization */
 	MPI_Init(&argc,&argv);
@@ -162,9 +136,11 @@ int main(int argc, char **argv) {
 		MPI_Abort(MPI_COMM_WORLD, rc);
 		exit(1);
 	}
-	numworkers = numtasks-1;	
+	numworkers = numtasks-1;
 
 	if(taskid == MASTER) {
+		printf("mpi_kmeans has started with %d tasks.\n", numtasks);
+		
 		FILE *fp = fopen(argv[1], "r");
 		num_points = 0;
 
@@ -176,27 +152,31 @@ int main(int argc, char **argv) {
 		}
 
 		/* Initialize array for points */
-		points = (double*)malloc((num_points*input_dim)*sizeof(double));
+		points = (double**)malloc(num_points*sizeof(double*));
+		int i;
+		for (i=0; i<num_points; ++i) {
+			points[i] = (double*)malloc(input_dim*sizeof(double));
+		}
 
 		/* Send file pointer to beginning of file */
 		rewind(fp);
-
+	
 		/* Read the points into an array */
-		i = 0, j = 0;
+		i = 0;
+		int j = 0;
 		while (!feof(fp)) {
 			for (j=0; j<input_dim; ++j) {
-				int idx = (i*input_dim) + j;
 				if (j == 0)
-					fscanf(fp, "%lf", &points[idx]);
+					fscanf(fp, "%lf", &points[i][j]);
 				else
-					fscanf(fp, ",%lf", &points[idx]);
+					fscanf(fp, ",%lf", &points[i][j]);
 			}
 			fscanf(fp, "\n");
 			i++;
 		}
 
-		//print_points(points, num_points, input_dim);	
-
+		//print_points(points, num_points, input_dim);
+	
 		/* Arrays to keep track of point memberships */
 		int *membership_old = (int*)malloc(num_points*sizeof(int));
 		membership_new = (int*)malloc(num_points*sizeof(int));
@@ -210,124 +190,50 @@ int main(int argc, char **argv) {
 		int *centroid_idx = (int*)malloc(num_clusters*sizeof(int));
 		init_cluster_centroids(centroid_idx, num_clusters, num_points);
 
+		//centroids = (double**)malloc(num_clusters*sizeof(double*));
 		for (i=0; i<num_clusters; ++i) {
+			centroids[i] = (double*)malloc(input_dim*sizeof(double));
 			for (j=0; j<input_dim; ++j) {
-				int c_idx = (i*input_dim) + j;
-				int p_idx = (centroid_idx[i]*input_dim) + j;
-				centroids[c_idx] = points[p_idx];
+				centroids[i][j] = points[centroid_idx[i]][j];
 			}
 		}
 
 		print_points(centroids, num_clusters, input_dim);
 
 		/* The K-means loop */
-		int master_msg = CONTINUE;
 		int num_iter = 0;
 		do {
 			num_iter++;
-
-			if (num_iter % 10 == 0)
-				printf("ITER: %d\n", num_iter);
-
 			for (i=0; i<num_points; i++) {
 				membership_old[i] = membership_new[i];
 			}
 
-			/* Send data to nodes via MPI */
 			averow = num_points/numworkers;
 			extra = num_points%numworkers;
 			offset = 0;
 			mtype = FROM_MASTER;
 			for (dest=1; dest<=numworkers; dest++){
 				rows = (dest <= extra) ? averow+1 : averow;
-				
-				MPI_Send(&master_msg, 1, MPI_INT, dest, mtype, MPI_COMM_WORLD);
+				printf("Sending %d points to task %d offset=%d\n",rows,dest,offset);
+				//MPI_Send(&num_points, 1, MPI_INT, dest, mtype, MPI_COMM_WORLD);
 				MPI_Send(&offset, 1, MPI_INT, dest, mtype, MPI_COMM_WORLD);
 				MPI_Send(&rows, 1, MPI_INT, dest, mtype, MPI_COMM_WORLD);
-				MPI_Send(&points[offset*input_dim], rows*input_dim, MPI_DOUBLE, dest, mtype,MPI_COMM_WORLD);
+				MPI_Send(&points[offset][0], rows*input_dim, MPI_DOUBLE, dest, mtype,MPI_COMM_WORLD);
 				MPI_Send(centroids, num_clusters*input_dim, MPI_DOUBLE, dest, mtype, MPI_COMM_WORLD);
 				MPI_Send(&membership_new[offset], rows, MPI_INT, dest, mtype, MPI_COMM_WORLD);
 				offset = offset + rows;
 			}
 
-			mtype = FROM_WORKER;
-			for (dest=1; dest<=numworkers; dest++){
-				MPI_Recv(&offset, 1, MPI_INT, dest, mtype, MPI_COMM_WORLD, &status);
-				MPI_Recv(&rows, 1, MPI_INT, dest, mtype, MPI_COMM_WORLD, &status);
-				MPI_Recv(membership_new + offset, rows, MPI_INT, dest, mtype, MPI_COMM_WORLD, &status);
-				
-			}
 
-			
-			find_centroids(centroids, num_clusters, points, membership_new, num_points, input_dim);
-
-		} while (num_changed_members(membership_old, membership_new, num_points) != 0);		
-		//end loop when two consecutive iterations have no change in assignment of clusters
-		
-
-		master_msg = EXIT;
-		mtype = FROM_MASTER;
-		for (dest=1; dest<=numworkers; ++dest) {
-			MPI_Send(&master_msg, 1, MPI_INT, dest, mtype, MPI_COMM_WORLD);
-		}
-
-		printf("Finished in %d iterations\n", num_iter);
-		printf("The final centroids are:\n");
-		print_points(centroids, num_clusters, input_dim);
-
-	}
-
-	//worker nodes
-	if(taskid > MASTER) {
-		int master_msg = EXIT;
-
-		do {
-			mtype = FROM_MASTER;
-
-			/* Get message from master about continuing or exiting */
-			
-			MPI_Recv(&master_msg, 1, MPI_INT, MASTER, mtype, MPI_COMM_WORLD, &status);
-			
-
-			if (master_msg == EXIT) {
-				break;
-			}
-
-			/* Receive offset and number of rows */
-			MPI_Recv(&offset, 1, MPI_INT, MASTER, mtype, MPI_COMM_WORLD, &status);
-			MPI_Recv(&rows, 1, MPI_INT, MASTER, mtype, MPI_COMM_WORLD, &status);
-
-			/* Allocate an array to store the points */
-			points = (double *)malloc((rows*input_dim)*sizeof(double));
-
-			/* Receive the points */
-			MPI_Recv(points, rows*input_dim, MPI_DOUBLE, MASTER, mtype, MPI_COMM_WORLD, &status);
-
-			//print_points(points, rows, input_dim);
-
-			/* Receive the centroids */
-			MPI_Recv(centroids, num_clusters*input_dim, MPI_DOUBLE, MASTER, mtype, MPI_COMM_WORLD, &status);
-
-			/* Allocate array to store memberships */
-			membership_new = (int *)malloc(rows*sizeof(int));
-
-			/* Receive memberships */
-			MPI_Recv(membership_new, rows, MPI_INT, MASTER, mtype, MPI_COMM_WORLD, &status);
-
-			
-
-			int i;
 			/* Assign points to clusters */
-			for (i=0; i<rows; ++i) {
-				int p_idx = i*input_dim;
-				double min_dist = distance((points+p_idx), (centroids), input_dim);
+			for (i=0; i<num_points; ++i) {
+				double min_dist = distance(points[i], centroids[0], input_dim);
 				int min_dist_idx = 1;
 				/* For each point */
 				for (j=0; j<num_clusters; ++j) {
 					/* For each cluster, find distance */
-					int c_idx = j*input_dim;
-					double dist = distance((points+p_idx), (centroids+c_idx), input_dim);
-
+					double dist = distance(points[i], centroids[j], input_dim);
+				
 					if (dist < min_dist) {
 						min_dist_idx = j+1;
 						min_dist = dist;
@@ -338,13 +244,47 @@ int main(int argc, char **argv) {
 				membership_new[i] = min_dist_idx;
 			}
 
-			mtype = FROM_WORKER;
-			
-			MPI_Send(&offset, 1, MPI_INT, MASTER, mtype, MPI_COMM_WORLD);
-			MPI_Send(&rows, 1, MPI_INT, MASTER, mtype, MPI_COMM_WORLD);
-			MPI_Send(membership_new, rows, MPI_INT, MASTER, mtype, MPI_COMM_WORLD);
-			
-		} while (master_msg != EXIT);
+			find_centroids(centroids, num_clusters, points, membership_new, num_points, input_dim);
+
+		} while (num_changed_members(membership_old, membership_new, num_points) != 0);
+	
+		printf("Finished in %d iterations\n", num_iter);
+		printf("The final centroids are:\n");
+		print_points(centroids, num_clusters, input_dim);
+	}
+
+	if(taskid > MASTER) {
+		mtype = FROM_MASTER;
+		MPI_Recv(&offset, 1, MPI_INT, MASTER, mtype, MPI_COMM_WORLD, &status);
+		MPI_Recv(&rows, 1, MPI_INT, MASTER, mtype, MPI_COMM_WORLD, &status);
+		
+		double** w_points = (double**)malloc(rows*sizeof(double *));
+		int i;
+		for(i=0; i<rows; i++) {
+			w_points[i] = (double*)malloc(input_dim*sizeof(double));
+		}
+		printf("rows recd\n");
+		printf("rows: %d\n", input_dim);
+		
+		MPI_Recv(&w_points, rows*input_dim, MPI_DOUBLE, MASTER, mtype, MPI_COMM_WORLD, &status);
+
+		printf("rows: %p\n", w_points);
+		print_points(w_points, rows, input_dim);
+		
+		double** w_centroids = (double**)malloc(num_clusters*sizeof(double *));
+		for(i=0; i<num_clusters; i++) {
+			w_centroids[i] = (double*)malloc(input_dim*sizeof(double));
+		}
+		printf("points recd\n");
+		
+		MPI_Recv(&w_centroids, num_clusters*input_dim, MPI_DOUBLE, MASTER, mtype, MPI_COMM_WORLD, &status);
+	
+		printf("centroids recd\n");
+		int* w_membership_new = (int*)malloc(rows*sizeof(int));
+		
+		MPI_Recv(&w_membership_new, rows, MPI_INT, MASTER, mtype, MPI_COMM_WORLD, &status);
+
+		printf("end\n");
 	}
 
 	MPI_Finalize();

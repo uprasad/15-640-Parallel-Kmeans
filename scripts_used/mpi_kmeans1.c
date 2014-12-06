@@ -11,7 +11,7 @@
 #define EXIT 0
 #define CONTINUE 1
 
-/* Prints all points in the points array */
+//print points
 void print_points(double* points, int num_points, int input_dim) {
 	
 	int i, j;
@@ -26,8 +26,8 @@ void print_points(double* points, int num_points, int input_dim) {
 	}
 }
 
-/* Prints the memberships for all points with respect to the clusters */
 void print_memberships(int* membership, int num_points) {
+	//
 	int i;
 
 	printf("(");
@@ -37,11 +37,10 @@ void print_memberships(int* membership, int num_points) {
 	printf(")\n");
 }
 
-/* Estimates the centroids from the membership of the points */
+//estimate new centroids
 void find_centroids(double* centroids, int num_clusters, double* points, int* membership, int num_points, int input_dim) {
 	int i, j;
 
-	//initialize all centroids to zero
 	for (i=0; i<num_clusters; ++i) {
 		for (j=0; j<input_dim; ++j) {
 			int idx = (i*input_dim) + j;
@@ -51,7 +50,6 @@ void find_centroids(double* centroids, int num_clusters, double* points, int* me
 
 	int* counts = (int*)calloc(num_clusters, sizeof(int));
 
-	//count membership for all points
 	for (i=0; i<num_points; ++i) {
 		for (j=0; j<input_dim; ++j) {
 			int c_idx = ((membership[i]-1)*input_dim) + j;
@@ -61,7 +59,6 @@ void find_centroids(double* centroids, int num_clusters, double* points, int* me
 		counts[membership[i]-1]++;
 	}
 
-	//update cluster centers/ centroids
 	for (i=0; i<num_clusters; ++i) {
 		for (j=0; j<input_dim; ++j) {
 			if (counts[i] != 0) {
@@ -72,7 +69,7 @@ void find_centroids(double* centroids, int num_clusters, double* points, int* me
 	}
 }
 
-/* Returns number of changes from membership_old to membership_new */
+//returns number of changes from membership_old to membership_new
 int num_changed_members(int* membership_old, int* membership_new, int num_points) {
 	int i;
 	int num_changed = 0;
@@ -85,11 +82,9 @@ int num_changed_members(int* membership_old, int* membership_new, int num_points
 	return num_changed;
 }
 
-/* Randomly chooses cluster centroids from points */
 void init_cluster_centroids(int* centroids, int num_clusters, int num_points) {
 	srand(time(NULL));
 
-	/* Random Permutation generator */
 	int i;
 	int* points_shuffle = (int*)malloc(num_points*sizeof(int));
 	for (i=0; i<num_points; i++) {
@@ -104,13 +99,11 @@ void init_cluster_centroids(int* centroids, int num_clusters, int num_points) {
 		points_shuffle[randomIndex] = temp;
 	}
 
-	/* Assign initial cluster centers from points */
 	for (i=0; i<num_clusters; ++i) {
 		centroids[i] = points_shuffle[i];
 	}
 }
 
-/* Distance between two points */
 double distance(double* x, double* y, int input_dim) {
 	/* Squared Euclidean, but can be changed to anything */
 	int i;
@@ -233,7 +226,6 @@ int main(int argc, char **argv) {
 				membership_old[i] = membership_new[i];
 			}
 
-			/* Send data to nodes via MPI */
 			averow = num_points/numworkers;
 			extra = num_points%numworkers;
 			offset = 0;
@@ -262,7 +254,7 @@ int main(int argc, char **argv) {
 			find_centroids(centroids, num_clusters, points, membership_new, num_points, input_dim);
 
 		} while (num_changed_members(membership_old, membership_new, num_points) != 0);		
-		//end loop when two consecutive iterations have no change in assignment of clusters
+
 		
 
 		master_msg = EXIT;
@@ -277,7 +269,6 @@ int main(int argc, char **argv) {
 
 	}
 
-	//worker nodes
 	if(taskid > MASTER) {
 		int master_msg = EXIT;
 

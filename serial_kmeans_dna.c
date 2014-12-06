@@ -214,6 +214,10 @@ int main(int argc, char **argv) {
 
 		find_centroids(centroids, num_clusters, points, membership_new, num_points, input_dim);
 
+		if(num_iter%10 == 0) {
+			printf("%d\n",num_iter);
+		}
+
 	} while (num_changed_members(membership_old, membership_new, num_points) != 0);
 
 	printf("Finished in %d iterations\n", num_iter);

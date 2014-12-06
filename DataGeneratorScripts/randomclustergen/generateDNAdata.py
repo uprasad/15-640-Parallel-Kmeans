@@ -9,7 +9,7 @@ def usage():
         '\t-c <#>\t\tNumber of clusters to generate\n' + \
         '\t-p <#>\t\tNumber of points per cluster\n' + \
         '\t-o <file>\tFilename for the output of the raw data\n' + \
-        '\t-v [#]\t\tMaximum coordinate value for points\n'  
+        '\t-v [#]\t\tLength of DNA sequence\n'  
 
        
        
@@ -18,8 +18,12 @@ def euclideanDistance(p1, p2):
     '''
     Takes two 2-D points and computes the Euclidean distance between them.
     '''
-    return math.sqrt(math.pow((p2[0] - p1[0]), 2) + \
-                    math.pow((p2[1] - p1[1]), 2))
+    dist = 0
+    for i in range(len(p1)):
+        if (p1[i] != p2[i]):
+            dist = dist + 1
+
+    return dist
 
 def tooClose(point, points, minDist):
     '''
@@ -57,7 +61,7 @@ def handleArgs(args):
             output = val
         # now, the optional argument
         elif key == '-v':
-            maxValue = float(val)
+            maxValue = int(val)
 
     # check required arguments were inputted  
     if numClusters < 0 or numPoints < 0 or \
@@ -69,7 +73,7 @@ def handleArgs(args):
             maxValue)
 
 def drawOrigin(maxValue):
-    return numpy.random.uniform(0, maxValue, 2)
+    return map(int, numpy.random.uniform(0, 4, maxValue))
 
 # start by reading the command line
 numClusters, \
@@ -100,6 +104,9 @@ for i in range(0, numClusters):
     for j in range(0, numPoints):
         # generate a 2D point with specified variance
         # point is normally-distributed around centroids[i]
-        x, y = numpy.random.normal(cluster, variance)
+        #x, y = numpy.random.normal(cluster, variance)
         # write the points out
-        writer.writerow([x, y])
+        #writer.writerow([x, y])
+	X = map(int, numpy.random.normal(cluster, variance))
+	X = map(abs, X)
+	writer.writerow(X)

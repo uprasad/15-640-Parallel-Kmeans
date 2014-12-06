@@ -1,6 +1,4 @@
-ghc50.ghc.andrew.cmu.edu
 ghc31.ghc.andrew.cmu.edu
-ghc33.ghc.andrew.cmu.edu
 ghc35.ghc.andrew.cmu.edu
 ghc52.ghc.andrew.cmu.edu
 ghc69.ghc.andrew.cmu.edu
@@ -8,4 +6,5 @@ ghc70.ghc.andrew.cmu.edu
 ghc71.ghc.andrew.cmu.edu
 ghc72.ghc.andrew.cmu.edu
 ghc75.ghc.andrew.cmu.edu
-ghc51.ghc.andrew.cmu.edu
+ghc61.ghc.andrew.cmu.edu
+ghc62.ghc.andrew.cmu.edu
